@@ -1,0 +1,139 @@
+use tonic::Status;
+use tracing::{error, info};
+
+use crate::{
+    grpc::{
+        CreateUserRequest, CreateUserResponse, DeleteUserRequest, DeleteUserResponse,
+        GetUserByIdRequest, GetUserByIdResponse, GetUserByNameRequest, GetUserByNameResponse,
+        GetUsersRequest, GetUsersResponse, UpdateUserRequest, UpdateUserResponse,
+        user_service_server::UserService,
+    },
+    usecases::user_usecase::UserUsecase,
+};
+
+pub struct UserServer {
+    span: tracing::Span,
+    usecase: UserUsecase,
+}
+
+impl UserServer {
+    pub fn new(span: tracing::Span, usecase: UserUsecase) -> Self {
+        Self { span, usecase }
+    }
+}
+
+#[tonic::async_trait]
+impl UserService for UserServer {
+    async fn create_user(
+        &self,
+        input: tonic::Request<CreateUserRequest>,
+    ) -> Result<tonic::Response<CreateUserResponse>, Status> {
+        let _guard = self.span.enter();
+        let (_meta_data, _extentions, body) = input.into_parts();
+        info!(
+            "creatign user with name={:?} and surname={:?}",
+            body.name, body.surname
+        );
+        let res = self
+            .usecase
+            .create_user(body.name, body.surname)
+            .await
+            .map_err(|e| {
+                let msg = format!("failed to create user: {:?}", e);
+                error!(msg);
+                Status::internal(msg)
+            })?;
+        Ok(tonic::Response::new(res))
+    }
+
+    async fn get_users(
+        &self,
+        _input: tonic::Request<GetUsersRequest>,
+    ) -> Result<tonic::Response<GetUsersResponse>, tonic::Status> {
+        let _guard = self.span.enter();
+        info!("getting all users");
+        let res = self.usecase.get_users().await.map_err(|e| {
+            let msg = format!("failed to retrieve users: {:?}", e);
+            error!(msg);
+            Status::internal(msg)
+        })?;
+        Ok(tonic::Response::new(res))
+    }
+
+    async fn get_user_by_id(
+        &self,
+        input: tonic::Request<GetUserByIdRequest>,
+    ) -> Result<tonic::Response<GetUserByIdResponse>, tonic::Status> {
+        let _guard = self.span.enter();
+        let (_meta_data, _extentions, body) = input.into_parts();
+        info!("getting user by id={:?}", body.id);
+        let res = self.usecase.get_user_by_id(body.id).await.map_err(|e| {
+            let msg = format!("failed to retrieve user: {:?}", e);
+            error!(msg);
+            match e {
+                crate::Error::NotFound => Status::not_found(msg),
+                _ => Status::internal(msg),
+            }
+        })?;
+        Ok(tonic::Response::new(res))
+    }
+
+    async fn get_user_by_name(
+        &self,
+        input: tonic::Request<GetUserByNameRequest>,
+    ) -> Result<tonic::Response<GetUserByNameResponse>, tonic::Status> {
+        let _guard = self.span.enter();
+        let (_meta_data, _extentions, body) = input.into_parts();
+        info!("getting user by name={:?}", body.name);
+        let res = self
+            .usecase
+            .get_user_by_name(body.name)
+            .await
+            .map_err(|e| {
+                let msg = format!("failed to retrieve user: {:?}", e);
+                error!(msg);
+                match e {
+                    crate::Error::NotFound => Status::not_found(msg),
+                    _ => Status::internal(msg),
+                }
+            })?;
+        Ok(tonic::Response::new(res))
+    }
+
+    async fn update_user(
+        &self,
+        input: tonic::Request<UpdateUserRequest>,
+    ) -> Result<tonic::Response<UpdateUserResponse>, tonic::Status> {
+        let _guard = self.span.enter();
+        let (_meta_data, _extentions, body) = input.into_parts();
+        info!(
+            "updating user with id={:?}, setting name={:?} and surname={:?}",
+            body.id, body.name, body.surname
+        );
+        let res = self
+            .usecase
+            .update_user(body.id, body.name, body.surname)
+            .await
+            .map_err(|e| {
+                let msg = format!("failed to update user: {:?}", e);
+                error!(msg);
+                Status::internal(msg)
+            })?;
+        Ok(tonic::Response::new(res))
+    }
+
+    async fn delete_user(
+        &self,
+        input: tonic::Request<DeleteUserRequest>,
+    ) -> Result<tonic::Response<DeleteUserResponse>, tonic::Status> {
+        let _guard = self.span.enter();
+        let (_meta_data, _extentions, body) = input.into_parts();
+        info!("deleting user with id={:?}", body.id);
+        let res = self.usecase.delete_user(body.id).await.map_err(|e| {
+            let msg = format!("failed to delete user: {:?}", e);
+            error!(msg);
+            Status::internal(msg)
+        })?;
+        Ok(tonic::Response::new(res))
+    }
+}
