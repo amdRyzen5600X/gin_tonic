@@ -10,35 +10,29 @@ message User {
 
 message GetUsersRequest {}
 
+message StreamUsersRequest {}
+
+message StreamUsersResponse { User user = 1; }
+
 message GetUsersResponse {
   repeated User users = 1;
   int32 count = 2;
 }
 
-message GetUserByIDRequest {
-  int32 id = 1;
-}
+message GetUserByIDRequest { int32 id = 1; }
 
-message GetUserByIDResponse {
-  optional User user = 1;
-}
+message GetUserByIDResponse { optional User user = 1; }
 
-message GetUserByNameResponse {
-  optional User user = 1;
-}
+message GetUserByNameResponse { optional User user = 1; }
 
-message GetUserByNameRequest {
-  string name = 1;
-}
+message GetUserByNameRequest { string name = 1; }
 
 message CreateUserRequest {
   string name = 1;
   string surname = 2;
 }
 
-message CreateUserResponse {
-  User user = 1;
-}
+message CreateUserResponse { User user = 1; }
 
 message UpdateUserRequest {
   int32 id = 1;
@@ -46,22 +40,19 @@ message UpdateUserRequest {
   optional string surname = 3;
 }
 
-message UpdateUserResponse {
-  User user = 1;
-}
+message UpdateUserResponse { User user = 1; }
 
-message DeleteUserRequest {
-  int32 id = 1;
-}
+message DeleteUserRequest { int32 id = 1; }
 
-message DeleteUserResponse {
-}
+message DeleteUserResponse {}
 
 service UserService {
-  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {}
-  rpc GetUserByID(GetUserByIDRequest) returns (GetUserByIDResponse) {}
-  rpc GetUserByName(GetUserByNameRequest) returns (GetUserByNameResponse) {}
-  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {}
-  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
-  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {}
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUserByID(GetUserByIDRequest) returns (GetUserByIDResponse);
+  rpc GetUserByName(GetUserByNameRequest) returns (GetUserByNameResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+
+  rpc StreamUsers(StreamUsersRequest) returns (stream StreamUsersResponse);
 }

@@ -1,7 +1,11 @@
+use tokio::sync::mpsc::Sender;
+use tonic::Status;
+use tracing::info;
+
 use crate::{
     grpc::{
         CreateUserResponse, DeleteUserResponse, GetUserByIdResponse, GetUserByNameResponse,
-        GetUsersResponse, UpdateUserResponse,
+        GetUsersResponse, StreamUsersResponse, UpdateUserResponse,
     },
     repositories::user_repository::UserRepository,
 };
@@ -101,5 +105,26 @@ impl UserUsecase {
         self.repo.delete_user(id).await?;
 
         Ok(DeleteUserResponse {})
+    }
+
+    pub async fn send_users(
+        &self,
+        tx: Sender<Result<StreamUsersResponse, Status>>,
+    ) -> Result<(), crate::Error> {
+        let users = self.get_users().await?;
+
+        tokio::spawn(async move {
+            let span = tracing::info_span!("streaming users");
+            let _guard = span.enter();
+            for user in users.users {
+                let res = StreamUsersResponse { user: Some(user) };
+                if let Err(_) = tx.send(Ok(res)).await {
+                    info!("client disconnected");
+                    break;
+                }
+            }
+        });
+
+        Ok(())
     }
 }

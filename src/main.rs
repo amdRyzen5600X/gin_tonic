@@ -25,10 +25,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing_subscriber::fmt().pretty().init();
 
+    tracing::info!("server started at {}", addr);
+
     Server::builder()
         .add_service(UserServiceServer::new(user_server))
         .serve(addr)
         .await?;
+
+    tracing::info!("server shut down gracefully");
 
     Ok(())
 }

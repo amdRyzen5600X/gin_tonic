@@ -1,3 +1,6 @@
+use std::pin::Pin;
+
+use tokio_stream::{Stream, wrappers::ReceiverStream};
 use tonic::Status;
 use tracing::{error, info};
 
@@ -5,8 +8,8 @@ use crate::{
     grpc::{
         CreateUserRequest, CreateUserResponse, DeleteUserRequest, DeleteUserResponse,
         GetUserByIdRequest, GetUserByIdResponse, GetUserByNameRequest, GetUserByNameResponse,
-        GetUsersRequest, GetUsersResponse, UpdateUserRequest, UpdateUserResponse,
-        user_service_server::UserService,
+        GetUsersRequest, GetUsersResponse, StreamUsersRequest, StreamUsersResponse,
+        UpdateUserRequest, UpdateUserResponse, user_service_server::UserService,
     },
     usecases::user_usecase::UserUsecase,
 };
@@ -24,6 +27,9 @@ impl UserServer {
 
 #[tonic::async_trait]
 impl UserService for UserServer {
+    type StreamUsersStream =
+        Pin<Box<dyn Stream<Item = Result<StreamUsersResponse, Status>> + Send>>;
+
     async fn create_user(
         &self,
         input: tonic::Request<CreateUserRequest>,
@@ -43,20 +49,6 @@ impl UserService for UserServer {
                 error!(msg);
                 Status::internal(msg)
             })?;
-        Ok(tonic::Response::new(res))
-    }
-
-    async fn get_users(
-        &self,
-        _input: tonic::Request<GetUsersRequest>,
-    ) -> Result<tonic::Response<GetUsersResponse>, tonic::Status> {
-        let _guard = self.span.enter();
-        info!("getting all users");
-        let res = self.usecase.get_users().await.map_err(|e| {
-            let msg = format!("failed to retrieve users: {:?}", e);
-            error!(msg);
-            Status::internal(msg)
-        })?;
         Ok(tonic::Response::new(res))
     }
 
@@ -122,6 +114,20 @@ impl UserService for UserServer {
         Ok(tonic::Response::new(res))
     }
 
+    async fn get_users(
+        &self,
+        _input: tonic::Request<GetUsersRequest>,
+    ) -> Result<tonic::Response<GetUsersResponse>, tonic::Status> {
+        let _guard = self.span.enter();
+        info!("getting all users");
+        let res = self.usecase.get_users().await.map_err(|e| {
+            let msg = format!("failed to retrieve users: {:?}", e);
+            error!(msg);
+            Status::internal(msg)
+        })?;
+        Ok(tonic::Response::new(res))
+    }
+
     async fn delete_user(
         &self,
         input: tonic::Request<DeleteUserRequest>,
@@ -135,5 +141,23 @@ impl UserService for UserServer {
             Status::internal(msg)
         })?;
         Ok(tonic::Response::new(res))
+    }
+
+    async fn stream_users(
+        &self,
+        _input: tonic::Request<StreamUsersRequest>,
+    ) -> Result<tonic::Response<Self::StreamUsersStream>, Status> {
+        let _guard = self.span.enter();
+        info!("streaming all users");
+        let (tx, rx) = tokio::sync::mpsc::channel(128);
+        self.usecase.send_users(tx).await.map_err(|e| {
+            let msg = format!("failed to start streaming users: {:?}", e);
+            error!(msg);
+            Status::internal(msg)
+        })?;
+
+        Ok(tonic::Response::new(
+            Box::pin(ReceiverStream::new(rx)) as Self::StreamUsersStream
+        ))
     }
 }
