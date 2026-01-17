@@ -11,19 +11,19 @@ use tracing::Level;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:42069".parse().unwrap();
 
+    tracing_subscriber::fmt().pretty().init();
+
     let span = tracing::span!(Level::INFO, "UserService");
 
     let db_url = env::var("DATABASE_URL")
         .unwrap_or("postgres://postgres:postgres@0.0.0.0:5432/user_service".to_owned());
     let Ok(connection) = sqlx::postgres::PgPool::connect(&db_url).await else {
-        panic!("AAAAA cannot connect ot db");
+        panic!("AAAAAAA failed to connect to database");
     };
 
     let user_repo = UserRepository::new(connection);
     let user_usecase = UserUsecase::new(user_repo);
     let user_server = UserServer::new(span, user_usecase);
-
-    tracing_subscriber::fmt().pretty().init();
 
     tracing::info!("server started at {}", addr);
 

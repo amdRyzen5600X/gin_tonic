@@ -11,22 +11,22 @@ use crate::{
         GetUsersRequest, GetUsersResponse, StreamUsersRequest, StreamUsersResponse,
         UpdateUserRequest, UpdateUserResponse, user_service_server::UserService,
     },
-    usecases::user_usecase::UserUsecase,
+    usecases::UserUsecaseTrait,
 };
 
-pub struct UserServer {
+pub struct UserServer<T: UserUsecaseTrait> {
     span: tracing::Span,
-    usecase: UserUsecase,
+    usecase: T,
 }
 
-impl UserServer {
-    pub fn new(span: tracing::Span, usecase: UserUsecase) -> Self {
+impl<T: UserUsecaseTrait> UserServer<T> {
+    pub fn new(span: tracing::Span, usecase: T) -> Self {
         Self { span, usecase }
     }
 }
 
 #[tonic::async_trait]
-impl UserService for UserServer {
+impl<T: UserUsecaseTrait + 'static> UserService for UserServer<T> {
     type StreamUsersStream =
         Pin<Box<dyn Stream<Item = Result<StreamUsersResponse, Status>> + Send>>;
 
@@ -37,7 +37,7 @@ impl UserService for UserServer {
         let _guard = self.span.enter();
         let (_meta_data, _extentions, body) = input.into_parts();
         info!(
-            "creatign user with name={:?} and surname={:?}",
+            "creating user with name={:?} and surname={:?}",
             body.name, body.surname
         );
         let res = self
